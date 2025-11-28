@@ -1,7 +1,8 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useStore } from '../store';
 import { ContractStatus } from '../types';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, 
   AlertCircle, 
@@ -9,19 +10,35 @@ import {
   Search,
   Plus,
   History,
-  TrendingUp
+  TrendingUp,
+  Bell,
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { NotificationMenu } from './NotificationMenu';
 
 export const Dashboard: React.FC = () => {
   const contracts = useStore((state) => state.contracts);
   const setView = useStore((state) => state.setView);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showAlertBanner, setShowAlertBanner] = useState(true);
 
   // Calculate stats
   const activeContracts = contracts.filter(c => c.status === ContractStatus.ACTIVE).length;
   const expiredContracts = contracts.filter(c => c.status === ContractStatus.EXPIRED).length;
   const pendingContracts = contracts.filter(c => c.status === ContractStatus.PENDING).length;
   const totalValue = contracts.reduce((acc, curr) => acc + curr.value, 0);
+
+  // Identify expiring contracts for alerts
+  const expiringContracts = contracts.filter(c => {
+    if (c.status !== ContractStatus.ACTIVE) return false;
+    const today = new Date();
+    const endDate = new Date(c.endDate);
+    const diffTime = endDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 && diffDays <= 30;
+  });
 
   // Prepare chart data
   const chartData = [
@@ -61,12 +78,80 @@ export const Dashboard: React.FC = () => {
     >
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <div className="bg-gray-200 p-2 rounded-full">
-            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
-                AS
-            </div>
+        
+        <div className="flex items-center space-x-3">
+          {/* Notification Bell */}
+          <div className="relative">
+             <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className={`p-2 rounded-full transition-colors ${showNotifications ? 'bg-blue-100 text-blue-600' : 'bg-white hover:bg-gray-100 text-gray-500'}`}
+             >
+                 <Bell className="w-6 h-6" />
+                 {expiringContracts.length > 0 && (
+                     <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white rounded-full"></span>
+                 )}
+             </button>
+             <NotificationMenu 
+                isOpen={showNotifications} 
+                onClose={() => setShowNotifications(false)}
+                expiringContracts={expiringContracts}
+             />
+          </div>
+
+          <div className="bg-gray-200 p-2 rounded-full">
+              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">
+                  AS
+              </div>
+          </div>
         </div>
       </div>
+
+      {/* Critical Alert Banner */}
+      <AnimatePresence>
+        {showAlertBanner && expiringContracts.length > 0 && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+            animate={{ height: 'auto', opacity: 1, marginBottom: 24 }}
+            exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+            className="bg-red-50 border border-red-200 rounded-xl overflow-hidden"
+          >
+            <div className="p-4 flex items-start">
+              <div className="p-2 bg-red-100 rounded-full text-red-600 mr-3 flex-shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-red-900">Alerta de Processos</h3>
+                <p className="text-sm text-red-700 mt-1">
+                  Existem <strong>{expiringContracts.length} contratos</strong> vencendo nos próximos 30 dias que requerem atenção imediata.
+                </p>
+                <div className="mt-3 flex space-x-3">
+                  <button 
+                    onClick={() => {
+                        setShowNotifications(true);
+                        setShowAlertBanner(false);
+                    }}
+                    className="text-xs font-semibold bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Ver Processos
+                  </button>
+                  <button 
+                     onClick={() => setShowAlertBanner(false)}
+                     className="text-xs font-semibold text-red-700 hover:text-red-900 py-1.5"
+                  >
+                    Dispensar
+                  </button>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowAlertBanner(false)}
+                className="text-red-400 hover:text-red-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="mb-6 relative">
           <Search className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
@@ -90,13 +175,19 @@ export const Dashboard: React.FC = () => {
         </motion.div>
 
         {/* Expiring Soon Card */}
-        <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between">
+        <motion.div variants={itemVariants} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between relative overflow-hidden">
+          {expiringContracts.length > 0 && (
+             <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-orange-100 to-transparent -mr-4 -mt-4 rounded-full"></div>
+          )}
           <div>
             <p className="text-sm font-medium text-gray-500 mb-1">Expirando em 30 dias</p>
-            <h2 className="text-4xl font-bold text-orange-500">18</h2>
+            <h2 className={`text-4xl font-bold ${expiringContracts.length > 0 ? 'text-orange-500' : 'text-gray-900'}`}>
+                {expiringContracts.length}
+            </h2>
           </div>
-          <div className="mt-4 text-orange-600 text-sm font-medium">
-             Atenção
+          <div className="mt-4 text-orange-600 text-sm font-medium flex items-center">
+             {expiringContracts.length > 0 && <AlertCircle className="w-4 h-4 mr-1" />}
+             {expiringContracts.length > 0 ? 'Atenção Necessária' : 'Situação Normal'}
           </div>
         </motion.div>
 

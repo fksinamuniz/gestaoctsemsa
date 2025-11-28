@@ -1,8 +1,10 @@
+
 import React, { useMemo, useState } from 'react';
 import { useStore } from '../store';
 import { Contract, ContractStatus } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ContractModal } from './ContractModal';
+import { NotificationMenu } from './NotificationMenu';
 import { 
   Search, 
   Filter, 
@@ -12,7 +14,8 @@ import {
   Trash2,
   Edit,
   X,
-  FileText
+  FileText,
+  Bell
 } from 'lucide-react';
 
 export const ContractList: React.FC = () => {
@@ -31,7 +34,9 @@ export const ContractList: React.FC = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
 
+  // Filter logic
   const filteredContracts = useMemo(() => {
     return contracts.filter((c) => {
       const matchesSearch = 
@@ -44,6 +49,16 @@ export const ContractList: React.FC = () => {
       return matchesSearch && matchesFilter;
     });
   }, [contracts, searchQuery, filterStatus]);
+
+  // Identify expiring contracts for notifications
+  const expiringContracts = useMemo(() => contracts.filter(c => {
+    if (c.status !== ContractStatus.ACTIVE) return false;
+    const today = new Date();
+    const endDate = new Date(c.endDate);
+    const diffTime = endDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 && diffDays <= 30;
+  }), [contracts]);
 
   const getStatusColor = (status: ContractStatus) => {
     switch (status) {
@@ -106,11 +121,23 @@ export const ContractList: React.FC = () => {
                 <Plus className="w-5 h-5 mr-1" />
                 <span className="hidden md:inline">Novo</span>
             </button>
+            
+            {/* Notification Bell */}
             <div className="relative">
-                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-                <button className="p-2 text-gray-600 hover:bg-gray-200 rounded-full transition-colors">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                <button 
+                    onClick={() => setShowNotifications(!showNotifications)}
+                    className={`p-2 rounded-full transition-colors ${showNotifications ? 'bg-blue-100 text-blue-600' : 'bg-white text-gray-600 hover:bg-gray-200'}`}
+                >
+                    <Bell className="w-6 h-6" />
+                    {expiringContracts.length > 0 && (
+                        <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
+                    )}
                 </button>
+                <NotificationMenu 
+                    isOpen={showNotifications} 
+                    onClose={() => setShowNotifications(false)}
+                    expiringContracts={expiringContracts}
+                />
             </div>
         </div>
       </div>

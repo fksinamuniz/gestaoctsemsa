@@ -22,6 +22,13 @@ interface AppState {
   setSelectedContractId: (id: string | null) => void;
 }
 
+// Helper to calculate future date
+const getFutureDate = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0];
+};
+
 // Mock Data Generation
 const generateMockContracts = (): Contract[] => [
   {
@@ -31,7 +38,7 @@ const generateMockContracts = (): Contract[] => [
     contractNumber: '123/2024',
     value: 1250000.00,
     startDate: '2024-01-01',
-    endDate: '2024-12-31',
+    endDate: getFutureDate(15), // Expiring in 15 days (Alert Scenario)
     status: ContractStatus.ACTIVE,
     description: 'Compra de respiradores e monitores multiparamétricos para a UPA.',
     lastUpdate: '2024-05-20T10:00:00Z',
@@ -65,7 +72,7 @@ const generateMockContracts = (): Contract[] => [
     contractNumber: '215/2024',
     value: 4500000.00,
     startDate: '2024-03-10',
-    endDate: '2025-03-09',
+    endDate: getFutureDate(365),
     status: ContractStatus.PENDING,
     description: 'Medicamentos da farmácia básica.',
     lastUpdate: '2024-06-01T14:20:00Z',
@@ -97,7 +104,7 @@ const generateMockContracts = (): Contract[] => [
     contractNumber: '089/2024',
     value: 600000.00,
     startDate: '2024-01-01',
-    endDate: '2025-01-01',
+    endDate: getFutureDate(25), // Expiring in 25 days (Alert Scenario)
     status: ContractStatus.ACTIVE,
     description: 'Locação de 5 ambulâncias UTI móvel.',
     lastUpdate: '2024-02-15T08:00:00Z',
